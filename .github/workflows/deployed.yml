@@ -29,24 +29,6 @@ jobs:
           trivy fs . --severity CRITICAL,HIGH || true
         # TODO: Remove `|| true` after fixing CVE-2024-37890
 
-      - name: Run OWASP Dependency-Check
-        run: |
-          VERSION=$(curl --silent "https://api.github.com/repos/jeremylong/DependencyCheck/releases/latest" | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
-          echo "Latest Dependency-Check version: $VERSION"
-          curl -L -o dc.zip "https://github.com/jeremylong/DependencyCheck/releases/download/v${VERSION}/dependency-check-${VERSION}-release.zip"
-          unzip dc.zip -d dc
-          dc/dependency-check/bin/dependency-check.sh \
-            --project "tic-tac-toe" \
-            --out . \
-            --scan . \
-            --format HTML || true
-
-      - name: Upload OWASP Dependency-Check report
-        uses: actions/upload-artifact@v4
-        with:
-          name: dependency-check-report
-          path: dependency-check-report.html
-
       - name: Build and analyze with SonarQube
         uses: sonarsource/sonarqube-scan-action@master
         env:
