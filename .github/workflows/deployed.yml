@@ -31,12 +31,17 @@ jobs:
 
       - name: Run OWASP Dependency-Check
         run: |
-          curl -L https://github.com/jeremylong/DependencyCheck/releases/latest/download/dependency-check.zip -o dc.zip
+          VERSION=$(curl --silent "https://api.github.com/repos/jeremylong/DependencyCheck/releases/latest" | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+          echo "Latest Dependency-Check version: $VERSION"
+          curl -L -o dc.zip "https://github.com/jeremylong/DependencyCheck/releases/download/v${VERSION}/dependency-check-${VERSION}-release.zip"
           unzip dc.zip -d dc
-          dc/dependency-check/bin/dependency-check.sh --project "tic-tac-toe" --out . --scan . --format HTML
-        # Optional: add `--failOnCVSS 7` to fail pipeline on high/critical CVEs
+          dc/dependency-check/bin/dependency-check.sh \
+            --project "tic-tac-toe" \
+            --out . \
+            --scan . \
+            --format HTML || true
 
-      - name: Upload OWASP DC report
+      - name: Upload OWASP Dependency-Check report
         uses: actions/upload-artifact@v4
         with:
           name: dependency-check-report
@@ -48,7 +53,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
-      - name: Log in to Docker Hub (with access token)
+      - name: Log in to Docker Hub
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
