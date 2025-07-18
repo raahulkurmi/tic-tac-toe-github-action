@@ -35,26 +35,23 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
-      - name: Log in to Docker registry (using access token)
+      - name: Log in to Docker Hub (with access token)
         env:
-          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-          DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
-          DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY || 'docker.io' }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          if [ -z "$DOCKER_USERNAME" ] || [ -z "$DOCKER_TOKEN" ]; then
-            echo "❌ Missing DOCKER_USERNAME or DOCKER_TOKEN secret"
+          if [ -z "$DOCKERHUB_USERNAME" ] || [ -z "$DOCKERHUB_TOKEN" ]; then
+            echo "❌ Missing DOCKERHUB_USERNAME or DOCKERHUB_TOKEN"
             exit 1
           fi
-          echo "$DOCKER_TOKEN" | docker login "$DOCKER_REGISTRY" -u "$DOCKER_USERNAME" --password-stdin
+          echo "$DOCKERHUB_TOKEN" | docker login docker.io -u "$DOCKERHUB_USERNAME" --password-stdin
 
       - name: Build Docker image
         run: docker build -t tic-tac-toe .
 
       - name: Tag and push Docker image
         env:
-          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-          DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY || 'docker.io' }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
-          IMAGE_NAME=${DOCKER_REGISTRY}/${DOCKER_USERNAME}/tic-tac-toe:latest
-          docker tag tic-tac-toe $IMAGE_NAME
-          docker push $IMAGE_NAME
+          docker tag tic-tac-toe docker.io/$DOCKERHUB_USERNAME/tic-tac-toe:latest
+          docker push docker.io/$DOCKERHUB_USERNAME/tic-tac-toe:latest
