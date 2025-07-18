@@ -1,4 +1,4 @@
-name: Build, Analyze, Scan
+name: Build, Analyze, Scan, and Push Docker Image
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-analyze-scan:
-    name: Build, Analyze, and Scan
+    name: Build, Analyze, Scan, Dockerize
     runs-on: [self-hosted]
 
     steps:
@@ -27,11 +27,22 @@ jobs:
       - name: Run Trivy filesystem scan (temp allow CVE-2024-37890)
         run: |
           trivy fs . --severity CRITICAL,HIGH || true
-        # TODO: Remove `|| true` once `ws` is updated to >= 7.5.10 or 8.17.1
-        # Or use `--ignorefile` for this specific CVE if you're knowingly accepting the risk
+        # TODO: Remove `|| true` after updating `ws` to >=7.5.10 or 8.17.1
 
       - name: Build and analyze with SonarQube
         uses: sonarsource/sonarqube-scan-action@master
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      - name: Log in to Docker registry
+        run: echo "${{ secrets.DOCKER_TOKEN }}" | docker login ${{ secrets.DOCKER_REGISTRY || 'docker.io' }} -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+      - name: Build Docker image
+        run: |
+          docker build -t tic-tac-toe .
+
+      - name: Tag and push Docker image
+        run: |
+          docker tag tic-tac-toe ${{ secrets.DOCKER_USERNAME }}/tic-tac-toe:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/tic-tac-toe:latest
