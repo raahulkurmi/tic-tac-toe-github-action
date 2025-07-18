@@ -24,10 +24,23 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Run Trivy filesystem scan (temp allow CVE-2024-37890)
+      - name: Run Trivy filesystem scan (temporary CVE bypass)
         run: |
           trivy fs . --severity CRITICAL,HIGH || true
-        # TODO: Remove `|| true` after updating vulnerable dependencies
+        # TODO: Remove `|| true` after fixing CVE-2024-37890
+
+      - name: Run OWASP Dependency-Check
+        run: |
+          curl -L https://github.com/jeremylong/DependencyCheck/releases/latest/download/dependency-check.zip -o dc.zip
+          unzip dc.zip -d dc
+          dc/dependency-check/bin/dependency-check.sh --project "tic-tac-toe" --out . --scan . --format HTML
+        # Optional: add `--failOnCVSS 7` to fail pipeline on high/critical CVEs
+
+      - name: Upload OWASP DC report
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check-report
+          path: dependency-check-report.html
 
       - name: Build and analyze with SonarQube
         uses: sonarsource/sonarqube-scan-action@master
@@ -40,10 +53,6 @@ jobs:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          if [ -z "$DOCKERHUB_USERNAME" ] || [ -z "$DOCKERHUB_TOKEN" ]; then
-            echo "❌ Missing DOCKERHUB_USERNAME or DOCKERHUB_TOKEN"
-            exit 1
-          fi
           echo "$DOCKERHUB_TOKEN" | docker login docker.io -u "$DOCKERHUB_USERNAME" --password-stdin
 
       - name: Build Docker image
@@ -53,5 +62,13 @@ jobs:
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
-          docker tag tic-tac-toe docker.io/$DOCKERHUB_USERNAME/tic-tac-toe:latest
-          docker push docker.io/$DOCKERHUB_USERNAME/tic-tac-toe:latest
+          IMAGE=docker.io/$DOCKERHUB_USERNAME/tic-tac-toe:latest
+          docker tag tic-tac-toe $IMAGE
+          docker push $IMAGE
+
+      - name: Run Trivy image scan (post-push)
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+        run: |
+          IMAGE=docker.io/$DOCKERHUB_USERNAME/tic-tac-toe:latest
+          trivy image $IMAGE --severity CRITICAL,HIGH || true
